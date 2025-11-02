@@ -3,31 +3,38 @@ defmodule Chess do
   The main entry point for the application.
   """
 
-  # We need both of your modules
   alias Chess.GameState
   alias Chess.Render
-
-  # We can comment out the alias for Person B's code
-  # alias Chess.Game
+  alias Chess.Input
 
   @doc """
-  Starts the game and renders the initial board.
+  Starts the game.
   """
   def run() do
     IO.puts("Welcome to Elixir Chess!")
 
-    # --- 1. Choose Time ---
     minutes = choose_time_control()
-
-    # --- 2. Create the State ---
     game_state = GameState.new(minutes)
 
-    # --- 3. Render the Board (Your Code) ---
-    # Instead of calling Game.run, we just call Render.board
-    IO.puts("Rendering initial board...")
+    loop(game_state)
+  end
+
+  defp loop(game_state) do
     Render.board(game_state)
 
-    # The program will now exit, which is perfect for testing.
+    case Input.get_move() do
+      {:ok, {from, to}} ->
+        new_state = GameState.make_move(game_state, from, to)
+        loop(new_state)
+
+      :quit ->
+        IO.puts("Game ended.")
+        :ok
+
+      :invalid ->
+        IO.puts("Invalid input. Try again.")
+        loop(game_state)
+    end
   end
 
   defp choose_time_control() do
