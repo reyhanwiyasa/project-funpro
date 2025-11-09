@@ -31,8 +31,8 @@ defmodule Chess.Validator do
     is_legal_rook_move?(state, from, to)
   end
 
-  defp is_valid_for_piece?(_state, {_color, :knight}, _from, _to) do
-    true
+  defp is_valid_for_piece?(state, {_color, :knight}, from, to) do
+    is_legal_knight_move?(state, from, to)
   end
 
   defp is_valid_for_piece?(_state, _piece, _from, _to), do: true
@@ -84,7 +84,16 @@ defmodule Chess.Validator do
       (is_horizontal || is_vertical) && is_path_clear?(board, from, to)
     end
 
+    # -- KNIGHT --
+  defp is_legal_knight_move?(_state, from, to) do
+      {from_file, from_rank} = to_coords(from)
+      {to_file, to_rank} = to_coords(to)
 
+      delta_file = abs(to_file - from_file)
+      delta_rank = abs(to_rank - from_rank)
+
+      (delta_file == 2 && delta_rank == 1) || (delta_file == 1 && delta_rank == 2)
+    end
 
 
 
