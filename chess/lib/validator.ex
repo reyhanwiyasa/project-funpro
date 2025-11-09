@@ -17,8 +17,8 @@ defmodule Chess.Validator do
 
   defp is_not_capturing_own_piece?(%GameState{board: board}, {my_color, _}, to) do
     case Map.get(board, to) do
-      nil -> true # 'to' square is empty, this is fine
-      {opponent_color, _} -> opponent_color != my_color # Fine as long as it's not my color
+      nil -> true
+      {opponent_color, _} -> opponent_color != my_color
     end
   end
 
@@ -35,7 +35,9 @@ defmodule Chess.Validator do
     is_legal_knight_move?(state, from, to)
   end
 
-  defp is_valid_for_piece?(_state, _piece, _from, _to), do: true
+  defp is_valid_for_piece?(state, {_color, :bishop}, from, to) do
+    is_legal_bishop_move?(state, from, to)
+  end
 
 
  # -- PAWN --
@@ -95,6 +97,14 @@ defmodule Chess.Validator do
       (delta_file == 2 && delta_rank == 1) || (delta_file == 1 && delta_rank == 2)
     end
 
+    # -- BISHOP --
+    defp is_legal_bishop_move?(%GameState{board: board}, from, to) do
+    {from_file, from_rank} = to_coords(from)
+    {to_file, to_rank} = to_coords(to)
+    is_diagonal = abs(to_file - from_file) == abs(to_rank - from_rank)
+    is_diagonal && is_path_clear?(board, from, to)
+  end
+
 
 
     # -- HELPER --
@@ -132,33 +142,56 @@ defmodule Chess.Validator do
     end)
   end
 
-@doc "Returns a list of all squares between 'from' and 'to'."
-  defp get_squares_between(from, to) do
-    {from_file, from_rank} = to_coords(from)
-    {to_file, to_rank} = to_coords(to)
+    defp get_squares_between(from, to) do
 
-    cond do
-      from_rank == to_rank ->
-        file_range =
-          if from_file < to_file,
-            do: (from_file + 1)..(to_file - 1),
-            else: (to_file + 1)..(from_file - 1)
 
-        for f <- file_range, do: coords_to_atom({f, from_rank})
+      {from_file, from_rank} = to_coords(from)
+      {to_file, to_rank} = to_coords(to)
 
-      from_file == to_file ->
-        rank_range =
-          if from_rank < to_rank,
-            do: (from_rank + 1)..(to_rank - 1),
-            else: (to_rank + 1)..(from_rank - 1)
+      delta_file = to_file - from_file
+      delta_rank = to_rank - from_rank
 
-        for r <- rank_range, do: coords_to_atom({from_file, r})
+      cond do
+        delta_rank == 0 && delta_file != 0 ->
+          file_start = min(from_file, to_file) + 1
+          file_end = max(from_file, to_file) - 1
 
-      true ->
-        []
+          if file_start > file_end do
+            []
+          else
+            for f <- file_start..file_end, do: coords_to_atom({f, from_rank})
+          end
+
+        delta_file == 0 && delta_rank != 0 ->
+          rank_start = min(from_rank, to_rank) + 1
+          rank_end = max(from_rank, to_rank) - 1
+
+          if rank_start > rank_end do
+            []
+          else
+            for r <- rank_start..rank_end, do: coords_to_atom({from_file, r})
+          end
+
+        abs(delta_file) == abs(delta_rank) && delta_file != 0 ->
+          file_step = div(delta_file, abs(delta_file))
+          rank_step = div(delta_rank, abs(delta_rank))
+
+          num_steps_between = abs(delta_file) - 1
+
+          if num_steps_between > 0 do
+            for i <- 1..num_steps_between do
+              file = from_file + (i * file_step)
+              rank = from_rank + (i * rank_step)
+              coords_to_atom({file, rank})
+            end
+          else
+            []
+          end
+
+        true ->
+          []
+      end
     end
-  end
-
 @doc "Converts coordinates like {1, 1} into an atom :a1"
   defp coords_to_atom({file_num, rank_num}) do
     file_char = ?a + file_num - 1
