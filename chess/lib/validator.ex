@@ -39,6 +39,13 @@ defmodule Chess.Validator do
     is_legal_bishop_move?(state, from, to)
   end
 
+  defp is_valid_for_piece?(state, {_color, :queen}, from, to) do
+    is_legal_queen_move?(state, from, to)
+  end
+
+  defp is_valid_for_piece?(state, {_color, :king}, from, to) do
+    is_legal_king_move?(state, from, to)
+  end
 
  # -- PAWN --
   defp is_legal_pawn_move?(%GameState{} = state, color, from, to) do
@@ -103,6 +110,24 @@ defmodule Chess.Validator do
     {to_file, to_rank} = to_coords(to)
     is_diagonal = abs(to_file - from_file) == abs(to_rank - from_rank)
     is_diagonal && is_path_clear?(board, from, to)
+  end
+
+  # -- QUEEN --
+  defp is_legal_queen_move?(%GameState{} = state, from, to) do
+    is_legal_rook_move?(state, from, to) ||
+    is_legal_bishop_move?(state, from, to)
+  end
+
+
+  # -- KING --
+  defp is_legal_king_move?(_state, from, to) do
+    {from_file, from_rank} = to_coords(from)
+    {to_file, to_rank} = to_coords(to)
+
+    delta_file = abs(to_file - from_file)
+    delta_rank = abs(to_rank - from_rank)
+
+    max(delta_file, delta_rank) == 1
   end
 
 
