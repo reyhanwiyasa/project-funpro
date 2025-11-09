@@ -25,7 +25,7 @@ defmodule Chess.Render do
 
     # Print the file letters at the bottom
     IO.puts("  ")
-    IO.puts("    a  b  c  d  e  f  g  h")
+    IO.puts("      a  b  c  d  e  f  g  h")
     IO.puts("  ")
   end
 

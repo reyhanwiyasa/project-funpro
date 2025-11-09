@@ -6,7 +6,7 @@ defmodule Chess do
   alias Chess.GameState
   alias Chess.Render
   alias Chess.Input
-
+  alias Chess.Validator
   @doc """
   Starts the game.
   """
@@ -21,21 +21,27 @@ defmodule Chess do
 
   defp loop(game_state) do
     Render.board(game_state)
+    IO.puts("It is #{game_state.to_move}'s turn.")
+  case Input.get_move() do
+        {:ok, {from, to}} ->
 
-    case Input.get_move() do
-      {:ok, {from, to}} ->
-        new_state = GameState.make_move(game_state, from, to)
-        loop(new_state)
+          if Validator.is_legal_move?(game_state, from, to) do
+            new_state = GameState.make_move(game_state, from, to)
+            loop(new_state)
+          else
+            IO.puts("--- Illegal move. Try again. ---")
+            loop(game_state)
+          end
 
-      :quit ->
-        IO.puts("Game ended.")
-        :ok
+        :quit ->
+          IO.puts("Game ended.")
+          :ok
 
-      :invalid ->
-        IO.puts("Invalid input. Try again.")
-        loop(game_state)
+        :invalid ->
+          IO.puts("Invalid input. Try again.")
+          loop(game_state)
+      end
     end
-  end
 
   defp choose_time_control() do
     IO.puts("Choose time control:")
