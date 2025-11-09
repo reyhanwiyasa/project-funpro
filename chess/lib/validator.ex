@@ -27,7 +27,7 @@ defmodule Chess.Validator do
     is_legal_pawn_move?(state, color, from, to)
   end
 
-  defp is_valid_for_piece?(state, {color, :rook}, from, to) do
+  defp is_valid_for_piece?(state, {_color, :rook}, from, to) do
     is_legal_rook_move?(state, from, to)
   end
 
@@ -38,7 +38,7 @@ defmodule Chess.Validator do
   defp is_valid_for_piece?(_state, _piece, _from, _to), do: true
 
 
-
+ # -- PAWN --
   defp is_legal_pawn_move?(%GameState{} = state, color, from, to) do
       {from_file, from_rank} = to_coords(from)
       {to_file, to_rank} = to_coords(to)
@@ -72,32 +72,32 @@ defmodule Chess.Validator do
       end
     end
 
+
+    # -- ROOK --
   defp is_legal_rook_move?(%GameState{board: board}, from, to) do
-    {from_file, from_rank} = to_coords(from)
-    {to_file, to_rank} = to_coords(to)
+      {from_file, from_rank} = to_coords(from)
+      {to_file, to_rank} = to_coords(to)
 
-    is_horizontal = (from_rank == to_rank && from_file != to_file)
-    is_vertical = (from_file == to_file && from_rank != to_rank)
+      is_horizontal = (from_rank == to_rank && from_file != to_file)
+      is_vertical = (from_file == to_file && from_rank != to_rank)
 
-    if is_horizontal or is_vertical do
-      true
-    else
-      false
+      (is_horizontal || is_vertical) && is_path_clear?(board, from, to)
     end
-  end
 
 
+
+
+
+    # -- HELPER --
   def to_coords(atom) do
       <<file, rank>> = Atom.to_string(atom)
       {file - ?a + 1, rank - ?0}
     end
 
-  @doc "Checks if a square is empty (nil)."
   defp is_square_empty?(board, square_atom) do
     Map.get(board, square_atom) == nil
   end
 
-  @doc "Checks if a pawn is on its starting rank."
   defp is_on_starting_rank?(:white, 2), do: true
   defp is_on_starting_rank?(:black, 7), do: true
   defp is_on_starting_rank?(_color, _rank), do: false
@@ -113,5 +113,48 @@ defmodule Chess.Validator do
     in_between_rank = (from_rank_num + to_rank_num) |> div(2) |> Integer.to_string()
 
     String.to_atom(file_letter_string <> in_between_rank)
+  end
+
+  defp is_path_clear?(board, from, to) do
+    squares_between = get_squares_between(from, to)
+
+    Enum.all?(squares_between, fn square ->
+      is_square_empty?(board, square)
+    end)
+  end
+
+@doc "Returns a list of all squares between 'from' and 'to'."
+  defp get_squares_between(from, to) do
+    {from_file, from_rank} = to_coords(from)
+    {to_file, to_rank} = to_coords(to)
+
+    cond do
+      from_rank == to_rank ->
+        file_range =
+          if from_file < to_file,
+            do: (from_file + 1)..(to_file - 1),
+            else: (to_file + 1)..(from_file - 1)
+
+        for f <- file_range, do: coords_to_atom({f, from_rank})
+
+      from_file == to_file ->
+        rank_range =
+          if from_rank < to_rank,
+            do: (from_rank + 1)..(to_rank - 1),
+            else: (to_rank + 1)..(from_rank - 1)
+
+        for r <- rank_range, do: coords_to_atom({from_file, r})
+
+      true ->
+        []
+    end
+  end
+
+@doc "Converts coordinates like {1, 1} into an atom :a1"
+  defp coords_to_atom({file_num, rank_num}) do
+    file_char = ?a + file_num - 1
+    rank_char = ?0 + rank_num
+
+    String.to_atom(<<file_char, rank_char>>)
   end
 end
