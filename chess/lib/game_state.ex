@@ -8,7 +8,11 @@ defmodule Chess.GameState do
     :white_time_left_ms,
     :black_time_left_ms,
     :turn_started_at,
-    :en_passant_target
+    :en_passant_target,
+    white_can_castle_kingside: true,
+    white_can_castle_queenside: true,
+    black_can_castle_kingside: true,
+    black_can_castle_queenside: true
   ]
 
   def new(start_minutes) do
@@ -24,11 +28,13 @@ defmodule Chess.GameState do
     }
   end
 
-  def make_move(%__MODULE__{} = state, from, to) do
+  def make_move(%__MODULE__{} = state, from, to, promotion_piece \\ nil) do
       piece = Map.get(state.board, from)
 
-      new_board = execute_move_and_handle_en_passant(state, piece, from, to)
+      new_board = execute_move_and_handle_en_passant(state, piece, from, to, promotion_piece)
       new_en_passant_target = get_new_en_passant_target(piece, from, to)
+      
+      state = update_castling_rights(state, from, piece)
 
       %__MODULE__{
         state
@@ -38,28 +44,98 @@ defmodule Chess.GameState do
           en_passant_target: new_en_passant_target
       }
     end
-    defp execute_move_and_handle_en_passant(state, piece, from, to) do
+
+    defp update_castling_rights(state, from, {color, piece_type}) do
+      case {color, piece_type, from} do
+        {:white, :king, _} ->
+          %{state | white_can_castle_kingside: false, white_can_castle_queenside: false}
+        {:black, :king, _} ->
+          %{state | black_can_castle_kingside: false, black_can_castle_queenside: false}
+        {:white, :rook, :h1} ->
+          %{state | white_can_castle_kingside: false}
+        {:white, :rook, :a1} ->
+          %{state | white_can_castle_queenside: false}
+        {:black, :rook, :h8} ->
+          %{state | black_can_castle_kingside: false}
+        {:black, :rook, :a8} ->
+          %{state | black_can_castle_queenside: false}
+        _ ->
+          state
+      end
+    end
+    defp execute_move_and_handle_en_passant(state, piece, from, to, promotion_piece) do
+      {_color, piece_type} = piece
+      if piece_type == :king do
+        {from_file, from_rank} = Chess.Validator.to_coords(from)
+        {to_file, _to_rank} = Chess.Validator.to_coords(to)
+        delta_file = abs(to_file - from_file)
+        if delta_file == 2 do
+          {rook_from, rook_to} =
+            if to_file > from_file do
+              {
+                String.to_atom("h" <> Integer.to_string(from_rank)),  # rook from h1/h8
+                String.to_atom("f" <> Integer.to_string(from_rank))   # rook to f1/f8
+              }
+            else
+              {
+                String.to_atom("a" <> Integer.to_string(from_rank)),  # rook from a1/a8
+                String.to_atom("d" <> Integer.to_string(from_rank))   # rook to d1/d8
+              }
+            end
+          rook_piece = Map.get(state.board, rook_from)
+
+          state.board
+          |> Map.delete(from)
+          |> Map.delete(rook_from)
+          |> Map.put(to, piece)
+          |> Map.put(rook_to, rook_piece)
+        else
+          execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece)
+        end 
+      else
+        execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece)
+      end
+    end
+    
+
+    defp execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece) do
       is_en_passant = (elem(piece, 1) == :pawn) &&
                       (to == state.en_passant_target) &&
                       (Map.get(state.board, to) == nil)
+      new_board =
+        if is_en_passant do
+          {_to_file_num, to_rank_num} = Chess.Validator.to_coords(to)
+          to_file_str = to |> Atom.to_string() |> String.at(0)
 
-      if is_en_passant do
-        {_to_file_num, to_rank_num} = Validator.to_coords(to)
-        to_file_str = to |> Atom.to_string() |> String.at(0)
+          captured_pawn_rank = if state.to_move == :white, do: to_rank_num - 1, else: to_rank_num + 1
+          captured_pawn_square = String.to_atom(to_file_str <> Integer.to_string(captured_pawn_rank))
 
-        captured_pawn_rank = if state.to_move == :white, do: to_rank_num - 1, else: to_rank_num + 1
-        captured_pawn_square = String.to_atom(to_file_str <> Integer.to_string(captured_pawn_rank))
-
-        state.board
-        |> Map.delete(from)
-        |> Map.delete(captured_pawn_square)
-        |> Map.put(to, piece)
-      else
-        state.board
-        |> Map.delete(from)
-        |> Map.put(to, piece)
+          state.board
+          |> Map.delete(from)
+          |> Map.delete(captured_pawn_square)
+          |> Map.put(to, piece)
+        else
+          state.board
+          |> Map.delete(from)
+          |> Map.put(to, piece)
+        end
+      {_color, piece_type} = piece
+      {_to_file, to_rank} = Chess.Validator.to_coords(to)
+      cond do
+        piece_type == :pawn and state.to_move == :white and to_rank == 8 ->
+          promoted = promotion_piece || :queen
+          Map.put(new_board, to, {:white, promoted })
+        
+        piece_type == :pawn and state.to_move == :black and to_rank == 1 ->
+          promoted = promotion_piece || :queen
+          Map.put(new_board, to, {:black, promoted})
+      
+        true ->
+          new_board
       end
     end
+
+
 
     defp get_new_en_passant_target(piece, from, to) do
       {_piece_color, piece_type} = piece

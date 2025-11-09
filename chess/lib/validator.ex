@@ -7,7 +7,8 @@ defmodule Chess.Validator do
     with {:ok, {color, piece_type}} <- Map.fetch(state.board, from) do
       is_your_turn?(state, color) &&
       is_not_capturing_own_piece?(state, {color, piece_type}, to) &&
-      is_valid_for_piece?(state, {color, piece_type}, from, to)
+      is_valid_for_piece?(state, {color, piece_type}, from, to) &&
+      not_puts_own_king_in_check?(state, from, to)
     else
       :error -> false
     end
@@ -22,6 +23,45 @@ defmodule Chess.Validator do
     end
   end
 
+  def checkmate?(state, color) do
+    in_check?(state, color) and not has_legal_moves?(state, color)
+  end
+
+  def in_check?(state, color) do
+    king_square =
+      Enum.find_value(state.board, fn
+        {sq, {^color, :king}} -> sq
+        _ -> nil
+      end)
+
+    if king_square do
+      Enum.any?(state.board, fn
+        {from, {opp_color, _}} when opp_color != color ->
+          is_legal_move?(%{state | to_move: opp_color}, from, king_square)
+        _ ->
+          false
+      end)
+    else
+      false
+    end
+  end
+
+  def has_legal_moves?(state, color) do
+    Enum.any?(state.board, fn
+      {from, {^color, _}} ->
+        Enum.any?(possible_destinations(), fn to ->
+          is_legal_move?(state, from, to)
+        end)
+      _ ->
+        false
+    end)
+  end
+
+  defp possible_destinations() do
+    for file <- ?a..?h,
+        rank <- 1..8,
+        do: String.to_atom("#{<<file>>}#{rank}")
+  end
 
   defp is_valid_for_piece?(state, {color, :pawn}, from, to) do
     is_legal_pawn_move?(state, color, from, to)
@@ -43,8 +83,8 @@ defmodule Chess.Validator do
     is_legal_queen_move?(state, from, to)
   end
 
-  defp is_valid_for_piece?(state, {_color, :king}, from, to) do
-    is_legal_king_move?(state, from, to)
+  defp is_valid_for_piece?(state, {color, :king}, from, to) do
+    is_legal_king_move?(state, color, from, to)
   end
 
  # -- PAWN --
@@ -80,6 +120,21 @@ defmodule Chess.Validator do
           false
       end
     end
+
+  def pawn_promotion?(game_state, from, to) do  
+    {_, rank_to} = to |> to_coords()
+    piece = game_state.board[from]
+
+    {color, type} = piece
+  
+
+    is_pawn = type == :pawn
+    is_promotion_rank =
+      (color == :white and rank_to == 8) or (color == :black and rank_to == 1)
+    
+    is_pawn and is_promotion_rank
+  end
+
 
 
     # -- ROOK --
@@ -120,15 +175,75 @@ defmodule Chess.Validator do
 
 
   # -- KING --
-  defp is_legal_king_move?(_state, from, to) do
+  defp is_legal_king_move?(state, color, from, to) do
     {from_file, from_rank} = to_coords(from)
     {to_file, to_rank} = to_coords(to)
 
     delta_file = abs(to_file - from_file)
     delta_rank = abs(to_rank - from_rank)
 
-    max(delta_file, delta_rank) == 1
+    cond do
+      max(delta_file, delta_rank) == 1 ->
+        true
+      
+      delta_rank == 0 && delta_file == 2 ->
+        can_castle?(state, color, from, to)
+      true ->
+        false
+    end
   end
+
+  # -- CASTLING CHECK --
+  defp can_castle?(%GameState{board: board} = state, color, from, to) do
+    {from_file, _} = to_coords(from)
+    {to_file, rank} = to_coords(to)
+    direction = if to_file > from_file, do: 1, else: -1
+    rook_file = if direction == 1, do: 8, else: 1
+    rook_pos = coords_to_atom({rook_file, rank})
+    path_clear = is_path_clear?(board, from, rook_pos)
+    rook_ok = Map.get(board, rook_pos) == {color, :rook}
+    not_in_check = not king_in_check?(state, color)
+
+    has_castling_right =
+      case {color, direction} do
+        {:white, 1} -> state.white_can_castle_kingside
+        {:white, -1} -> state.white_can_castle_queenside
+        {:black, 1} -> state.black_can_castle_kingside
+        {:black, -1} -> state.black_can_castle_queenside
+      end
+   rook_ok && path_clear && not_in_check && has_castling_right
+  end
+
+  # === KING SAFETY ===
+  defp not_puts_own_king_in_check?(%GameState{} = state, from, to) do
+    {color, piece_type} = Map.fetch!(state.board, from)
+
+    new_board =
+      state.board
+      |> Map.delete(from)
+      |> Map.put(to, {color, piece_type})
+    new_state = %{state | board: new_board}
+    not king_in_check?(new_state, color)
+  end
+
+  defp king_in_check?(%GameState{board: board} = state, color) do
+    king_square = board
+    |> Enum.find(fn {_sq, {c, piece}} -> c == color and piece == :king end)
+    |> case do
+      {sq, _} -> sq
+      nil -> nil
+    end
+
+    case king_square do
+      nil -> false
+      sq ->
+        Enum.any?(board, fn {from, {opp_color, _}} ->
+          opp_color != color &&
+          is_legal_move?(%{state | to_move: opp_color}, from, sq)
+        end)
+      end
+    end
+
 
 
 
