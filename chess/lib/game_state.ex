@@ -12,7 +12,8 @@ defmodule Chess.GameState do
     white_can_castle_kingside: true,
     white_can_castle_queenside: true,
     black_can_castle_kingside: true,
-    black_can_castle_queenside: true
+    black_can_castle_queenside: true,
+    move_history: [],
   ]
 
   def new(start_minutes) do
@@ -33,17 +34,37 @@ defmodule Chess.GameState do
 
       new_board = execute_move_and_handle_en_passant(state, piece, from, to, promotion_piece)
       new_en_passant_target = get_new_en_passant_target(piece, from, to)
-      
+
       state = update_castling_rights(state, from, piece)
+      move_to_store = {from, to, promotion_piece}
+      new_history = state.move_history ++ [move_to_store]
 
       %__MODULE__{
         state
         | board: new_board,
           to_move: toggle_turn(state.to_move),
           turn_started_at: System.monotonic_time(:millisecond),
-          en_passant_target: new_en_passant_target
+          en_passant_target: new_en_passant_target,
+          move_history: new_history
       }
     end
+
+  @doc """
+  Builds a complete game state by replaying a list of moves.
+  Starts from a fresh board.
+  """
+  def build_state_from_history(moves_list) do
+    # For now, we'll use a default time.
+    # A more advanced version might store the time control in the save file.
+    initial_state = new(3) # 3-minute default for replays
+
+    # Use Enum.reduce to "play" the game from the start
+    # `acc_state` is the "accumulated" state (the game board)
+    Enum.reduce(moves_list, initial_state, fn {from, to, promotion}, acc_state ->
+      # Call make_move on the current state to get the next state
+      make_move(acc_state, from, to, promotion)
+    end)
+  end
 
     defp update_castling_rights(state, from, {color, piece_type}) do
       case {color, piece_type, from} do
@@ -91,12 +112,12 @@ defmodule Chess.GameState do
           |> Map.put(rook_to, rook_piece)
         else
           execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece)
-        end 
+        end
       else
         execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece)
       end
     end
-    
+
 
     defp execute_standard_or_en_passant_move(state, piece, from, to, promotion_piece) do
       is_en_passant = (elem(piece, 1) == :pawn) &&
@@ -125,11 +146,11 @@ defmodule Chess.GameState do
         piece_type == :pawn and state.to_move == :white and to_rank == 8 ->
           promoted = promotion_piece || :queen
           Map.put(new_board, to, {:white, promoted })
-        
+
         piece_type == :pawn and state.to_move == :black and to_rank == 1 ->
           promoted = promotion_piece || :queen
           Map.put(new_board, to, {:black, promoted})
-      
+
         true ->
           new_board
       end
