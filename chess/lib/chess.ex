@@ -8,7 +8,8 @@ defmodule Chess do
   alias Chess.Input
   alias Chess.Validator
   alias Chess.GameSaver
-  
+  alias Chess.Bot
+
   @doc """
   Starts the game.
   """
@@ -24,7 +25,15 @@ defmodule Chess do
   defp loop(game_state) do
     Render.board(game_state)
     IO.puts("It is #{game_state.to_move}'s turn.")
-  case Input.get_move() do
+    move_result =
+      if game_state.to_move == :white do
+        Input.get_move()
+      else
+        Process.sleep(1000)
+        Chess.Bot.choose_move(game_state)
+      end
+
+  case move_result do
         {:ok, {from, to}} ->
 
           if Validator.is_legal_move?(game_state, from, to) do
@@ -33,7 +42,7 @@ defmodule Chess do
                 choose_promotion_piece()
               else
                 nil
-              end 
+              end
             new_state = GameState.make_move(game_state, from, to, promotion_piece)
             if Validator.checkmate?(new_state, new_state.to_move) do
               Render.board(new_state)
@@ -51,7 +60,7 @@ defmodule Chess do
         :quit ->
           IO.puts("Game ended.")
           :ok
-        
+
         :undo ->
           IO.puts("Undoing last move...")
           # 1. Get history and remove the last move
@@ -83,7 +92,7 @@ defmodule Chess do
               IO.puts("Failed to load: #{reason}. Resuming game.")
               loop(game_state)
           end
-          
+
         :replay ->
           IO.puts("Starting replay...")
           # Call the new replay helper function
@@ -97,7 +106,7 @@ defmodule Chess do
           loop(game_state)
       end
     end
-  
+
   @doc "Loops through a move history and displays each step."
   defp replay_game(move_history) do
     # Start with a new game
@@ -115,7 +124,7 @@ defmodule Chess do
       # Call make_move to get the *next* state for the next loop
       GameState.make_move(acc_state, from, to, promotion)
     end)
-    
+
     # After the loop, render the final board
     final_state = GameState.build_state_from_history(move_history)
     Render.board(final_state)

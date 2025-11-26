@@ -121,17 +121,17 @@ defmodule Chess.Validator do
       end
     end
 
-  def pawn_promotion?(game_state, from, to) do  
+  def pawn_promotion?(game_state, from, to) do
     {_, rank_to} = to |> to_coords()
     piece = game_state.board[from]
 
     {color, type} = piece
-  
+
 
     is_pawn = type == :pawn
     is_promotion_rank =
       (color == :white and rank_to == 8) or (color == :black and rank_to == 1)
-    
+
     is_pawn and is_promotion_rank
   end
 
@@ -185,7 +185,7 @@ defmodule Chess.Validator do
     cond do
       max(delta_file, delta_rank) == 1 ->
         true
-      
+
       delta_rank == 0 && delta_file == 2 ->
         can_castle?(state, color, from, to)
       true ->
@@ -338,5 +338,21 @@ defmodule Chess.Validator do
     rank_char = ?0 + rank_num
 
     String.to_atom(<<file_char, rank_char>>)
+  end
+
+  @doc "Generates a list of all legal moves {from, to} for a specific color."
+  def generate_all_legal_moves(%GameState{} = state, color) do
+    my_pieces_squares =
+      Enum.filter(state.board, fn {_sq, {c, _type}} -> c == color end)
+      |> Enum.map(fn {sq, _piece} -> sq end)
+
+    destinations = possible_destinations()
+
+    Enum.flat_map(my_pieces_squares, fn from ->
+      Enum.filter(destinations, fn to ->
+        is_legal_move?(state, from, to)
+      end)
+      |> Enum.map(fn to -> {from, to} end)
+    end)
   end
 end
