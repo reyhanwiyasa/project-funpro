@@ -14,6 +14,9 @@ defmodule Chess.Render do
     IO.write(:clear)
     IO.puts("   --- Chess Game ---")
 
+    score = Chess.Evaluator.evaluate(game_state)
+    IO.puts("   Score: #{format_score(score)}")
+
     # --- NEW SECTION: DISPLAY TIMERS ---
     display_timers(game_state)
 
@@ -108,4 +111,7 @@ defmodule Chess.Render do
 
     "#{mins_str}:#{secs_str}"
   end
+
+  defp format_score(n) when n > 0, do: "+#{n}"
+  defp format_score(n), do: "#{n}"
 end
