@@ -42,8 +42,8 @@ defmodule Chess.Render do
       print_rank(rank, game_state.board, bar_char, highlight_squares)
     end)
 
-    IO.puts("     +--------------------------+")
-    IO.puts("       a  b  c  d  e  f  g  h")
+    IO.puts("       +--------------------------+")
+    IO.puts("         a  b  c  d  e  f  g  h")
     IO.puts("   Score: #{format_score(score)}")
     IO.puts("")
   end

@@ -36,6 +36,14 @@ defmodule Chess.GameState do
   end
 
   def make_move(%__MODULE__{} = state, from, to, promotion_piece \\ nil) do
+      time_spent_ms = System.monotonic_time(:millisecond) - state.turn_started_at
+      
+      {new_white_time, new_black_time} = 
+        case state.to_move do
+          :white -> {state.white_time_left_ms - time_spent_ms, state.black_time_left_ms}
+          :black -> {state.white_time_left_ms, state.black_time_left_ms - time_spent_ms}
+        end
+
       piece = Map.get(state.board, from)
 
       new_board = execute_move_and_handle_en_passant(state, piece, from, to, promotion_piece)
@@ -49,6 +57,8 @@ defmodule Chess.GameState do
         state
         | board: new_board,
           to_move: toggle_turn(state.to_move),
+          white_time_left_ms: new_white_time,
+          black_time_left_ms: new_black_time,
           turn_started_at: System.monotonic_time(:millisecond),
           en_passant_target: new_en_passant_target,
           move_history: new_history

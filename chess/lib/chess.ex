@@ -19,21 +19,41 @@ defmodule Chess do
   end
 
   defp loop(game_state) do
-    Render.board(game_state)
+    case check_for_timeout(game_state) do
+      {:game_over, :timeout, winner} ->
+        Render.board(game_state)
+        IO.puts("Time's up! #{winner} wins by timeout!")
+        :ok
 
-    # Determine if it's a human's turn or a bot's turn
-    is_human_turn =
-      case {game_state.game_mode, game_state.to_move} do
-        {:pvp, _} -> true
-        {:p_vs_bot_simple, :white} -> true
-        {:p_vs_bot_minimax, :white} -> true
-        _ -> false
-      end
+      :ok ->
+        Render.board(game_state)
 
-    if is_human_turn do
-      handle_human_turn(game_state)
-    else
-      handle_bot_turn(game_state)
+        # Determine if it's a human's turn or a bot's turn
+        is_human_turn =
+          case {game_state.game_mode, game_state.to_move} do
+            {:pvp, _} -> true
+            {:p_vs_bot_simple, :white} -> true
+            {:p_vs_bot_minimax, :white} -> true
+            _ -> false
+          end
+
+        if is_human_turn do
+          handle_human_turn(game_state)
+        else
+          handle_bot_turn(game_state)
+        end
+    end
+  end
+
+  defp check_for_timeout(game_state) do
+    # Note: We check the time for the player whose turn it *was* before the state flipped.
+    cond do
+      game_state.to_move == :white and game_state.black_time_left_ms <= 0 ->
+        {:game_over, :timeout, :white}
+      game_state.to_move == :black and game_state.white_time_left_ms <= 0 ->
+        {:game_over, :timeout, :black}
+      true ->
+        :ok
     end
   end
 
@@ -191,12 +211,15 @@ defmodule Chess do
   end
 
   defp choose_time_control() do
-    IO.puts("Choose time control: (1. 1 Min, 2. 3 Mins, 3. 5 Mins)")
-    case IO.gets("Enter (1-3): ") |> String.trim() do
-      "1" -> 1
-      "2" -> 3
-      "3" -> 5
-      _ -> IO.puts("Invalid choice, defaulting to 3 minutes."); 3
+    IO.puts("Choose time control.")
+    prompt = "Enter time in minutes (1-15): "
+    case IO.gets(prompt) |> String.trim() |> Integer.parse() do
+      {minutes, ""} when minutes in 1..15 ->
+        IO.puts("Time control set to #{minutes} minutes.")
+        minutes
+      _ ->
+        IO.puts("Invalid input. Defaulting to 3 minutes.")
+        3
     end
   end
 
