@@ -14,6 +14,9 @@ defmodule Chess.GameState do
     black_can_castle_kingside: true,
     black_can_castle_queenside: true,
     move_history: [],
+    game_mode: :pvp, # :pvp, :p_vs_bot_simple, :p_vs_bot_minimax
+    bot_depth: 2,
+    input_state: :awaiting_from # :awaiting_from | {:awaiting_to, from_square}
   ]
 
   def new(start_minutes) do
@@ -25,7 +28,10 @@ defmodule Chess.GameState do
       white_time_left_ms: total_ms,
       black_time_left_ms: total_ms,
       turn_started_at: System.monotonic_time(:millisecond),
-      en_passant_target: nil
+      en_passant_target: nil,
+      game_mode: :pvp,
+      bot_depth: 2,
+      input_state: :awaiting_from
     }
   end
 
@@ -53,10 +59,12 @@ defmodule Chess.GameState do
   Builds a complete game state by replaying a list of moves.
   Starts from a fresh board.
   """
-  def build_state_from_history(moves_list) do
-    # For now, we'll use a default time.
-    # A more advanced version might store the time control in the save file.
-    initial_state = new(3) # 3-minute default for replays
+  def build_state_from_history(moves_list, current_game_state) do
+    # Create a new state, but preserve the game mode and bot settings from the current state.
+    initial_state = %{new(3) | 
+      game_mode: current_game_state.game_mode, 
+      bot_depth: current_game_state.bot_depth
+    }
 
     # Use Enum.reduce to "play" the game from the start
     # `acc_state` is the "accumulated" state (the game board)

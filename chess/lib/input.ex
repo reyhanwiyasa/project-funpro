@@ -1,33 +1,35 @@
 defmodule Chess.Input do
-  @moduledoc "Handles player input."
+  @moduledoc """
+  Handles player input, including move selection and commands.
+  """
 
-  def get_move() do
-    # 1. Update the prompt to show new commands
-    input =
-      IO.gets("Move (e.g. e2e4), 'q' (quit), 'undo', 'save', 'load', 'replay': ")
-      |> String.trim()
+  @doc """
+  Gets a single square from the user (e.g., "e4").
+  Also handles special commands like 'quit' or 'undo'.
+  Returns:
+  - `{:ok, :a1}` for a valid square
+  - `:quit`, `:undo`, etc. for commands
+  - `:invalid` for anything else
+  """
+  def get_square(prompt) do
+    input = IO.gets(prompt) |> String.trim()
 
-    # 2. Add new command clauses
     cond do
-      input == "q" ->
+      input == "q" or input == "quit" ->
         :quit
-
       input == "undo" ->
         :undo
-
       input == "save" ->
         :save
-
       input == "load" ->
         :load
-
       input == "replay" ->
         :replay
-
-      Regex.match?(~r/^[a-h][1-8][a-h][1-8]$/, input) ->
-        <<f1, r1, f2, r2>> = input
-        {:ok, {String.to_atom(<<f1, r1>>), String.to_atom(<<f2, r2>>)}}
-
+      # Special command to cancel selection
+      input == "cancel" ->
+        :cancel
+      Regex.match?(~r/^[a-h][1-8]$/, input) ->
+        {:ok, String.to_atom(input)}
       true ->
         :invalid
     end
