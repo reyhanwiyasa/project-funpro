@@ -73,3 +73,39 @@ Pastikan **Elixir** sudah terinstal di komputer Anda.
     mix run -e "Chess.run()"
     ```
 3.  Ikuti instruksi di layar untuk memilih waktu dan mulai bermain!
+
+## Contoh Perbedaan
+
+Imperative:
+
+```
+def move_piece(board, old_pos, new_pos):
+    piece = board[old_pos]
+    board[old_pos] = None  # Hapus di tempat lama
+    board[new_pos] = piece # Tulis di tempat baru
+```
+
+Functional:
+
+```
+def move_piece(old_board, old_pos, new_pos) do
+  piece = Map.get(old_board, old_pos)
+
+  # Fungsi ini mengembalikan board BARU
+  old_board
+  |> Map.delete(old_pos)
+  |> Map.put(new_pos, piece)
+end
+```
+
+1. Fitur Undo/History Sangat Murah & Aman
+
+`Imperative`: Karena data diubah langsung, untuk membuat fitur Undo, maka harus menyalin seluruh papan setiap kali melangkah dan ini boros memori dan membuat logikanya menjadi rumit dan rawan bug.
+
+`Fungsional`: Karena old_board tidak pernah dihapus, maka cukup menyimpan daftar state yang pernah terjadi. Undo dapat dilakukan dengan memanggil kembali data old_board yang masih utuh di memori.
+
+2. Aman untuk Kalkulasi AI (Minimax)
+
+`Imperative`: Saat AI memprediksi 5 langkah ke depan, AI harus mengubah-ubah papan simulasi. Jika terdapat kesalahan coding sedikit saja dalam mengembalikan papan ke posisi semula, papan permainan asli akan ikut rusak/berantakan.
+
+`Fungsional`: AI bebas membuat ribuan future board untuk simulasi tanpa takut merusak papan permainan yang sedang berlangsung karena papan asli bersifat read-only.
